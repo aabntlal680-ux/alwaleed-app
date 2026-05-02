@@ -1,16 +1,31 @@
 {
   "expo": {
-    "name": "Alwaleed App",
-    "slug": "alwaleed-app-new",
+    "name": "مؤسسة الوليد للإنسانية",
+    "slug": "alwaleed-app",
     "version": "1.0.0",
-    "sdkVersion": "51.0.0",
-    "android": {
-      "package": "com.alwaleed.foundation.app"
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
-    "extra": {
-      "eas": {
-        "projectId": "1c09db9e-f89e-4708-a43b-fa00e3b1ce1f"
-      }
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.alwaleed.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }
