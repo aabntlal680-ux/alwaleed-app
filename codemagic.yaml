@@ -14,9 +14,9 @@ workflows:
           npm install -g expo-cli
       - name: Build Android APK
         script: |
-          # إنشاء مجلدات الأندرويد الأصلية بدون خيارات معقدة
-          npx expo prebuild --template blank --no-install
-          # الدخول للمجلد وبدء البناء
+          # تهيئة ملفات الأندرويد الأصلية بشكل مباشر
+          npx expo prebuild --platform android --no-install
+          # تنفيذ عملية البناء لاستخراج الـ APK
           cd android && ./gradlew assembleRelease
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
