@@ -15,4 +15,4 @@ workflows:
       - name: Build Web Artifacts
         script: |
           # بما أن مشروعك يحتوي على react-native-web، سنقوم ببناء نسخة الويب أولاً للتأكد
-          npx expo export:web
+          npx expo export -p web
