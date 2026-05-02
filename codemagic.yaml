@@ -1,6 +1,6 @@
 workflows:
   expo-android:
-    name: Alwaleed Expo Android
+    name: Alwaleed App APK
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
@@ -12,7 +12,10 @@ workflows:
       - name: Install Expo CLI
         script: |
           npm install -g expo-cli
-      - name: Build Web Artifacts
+      - name: Build Android APK
         script: |
-          # بما أن مشروعك يحتوي على react-native-web، سنقوم ببناء نسخة الويب أولاً للتأكد
-          npx expo export -p web
+          # هذا الأمر سيقوم بإنشاء نسخة الأندرويد
+          npx expo prebuild
+          cd android && ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/apk/release/*.apk
