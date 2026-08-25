@@ -1,6 +1,8 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -13,8 +15,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import { Card } from "@/components/Card";
+import { useAuth } from "@/hooks/useAuth";
 import { useColors } from "@/hooks/useColors";
 
 const STORAGE_KEY = "@alwaleed/settings/v1";
@@ -38,6 +42,8 @@ const DEFAULTS: SettingsState = {
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const { user, isAdmin, signOut } = useAuth();
   const [state, setState] = useState<SettingsState>(DEFAULTS);
   const [loaded, setLoaded] = useState(false);
 
@@ -68,25 +74,23 @@ export default function SettingsScreen() {
 
   const clearCache = () => {
     Alert.alert(
-      "مسح الذاكرة المؤقتة",
-      "سيؤدي هذا إلى حذف البيانات المحفوظة محلياً (لن يؤثر على حسابك). هل أنت متأكد؟",
+      t("settings.clearCache"),
+      t("settings.clearCacheMsg"),
       [
-        { text: "إلغاء", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "مسح",
+          text: t("settings.clearBtn"),
           style: "destructive",
           onPress: async () => {
             try {
               const keys = await AsyncStorage.getAllKeys();
-              const toRemove = keys.filter((k) =>
-                k.startsWith("@alwaleed/"),
+              const toRemove = keys.filter(
+                (k) => k.startsWith("@alwaleed/") && k !== STORAGE_KEY,
               );
-              await AsyncStorage.multiRemove(
-                toRemove.filter((k) => k !== STORAGE_KEY),
-              );
-              Alert.alert("تم", "تم مسح الذاكرة المؤقتة بنجاح.");
+              await AsyncStorage.multiRemove(toRemove);
+              Alert.alert(t("settings.clearSuccess"), t("settings.clearSuccessMsg"));
             } catch {
-              Alert.alert("خطأ", "حدث خطأ أثناء مسح الذاكرة المؤقتة.");
+              Alert.alert(t("common.error"), t("settings.clearCache"));
             }
           },
         },
@@ -94,10 +98,31 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleSignOut = () => {
+    if (!user) return;
+    Alert.alert(t("settings.signOutTitle"), t("settings.signOutMsg"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("settings.signOutBtn"),
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+        },
+      },
+    ]);
+  };
+
+  const displayName = user?.name || t("settings.guestUser");
+  const displayEmail = user?.email || t("settings.noEmail");
+  const initials = displayName
+    .split(" ")
+    .map((w: string) => w[0] ?? "")
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "م";
+
   return (
-    <View
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -105,11 +130,83 @@ export default function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Section title="الإشعارات">
+        {/* Profile card — top of settings */}
+        <Pressable
+          onPress={() => router.push("/profile")}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+        >
+          <Card
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: 14,
+              paddingVertical: 14,
+            }}
+          >
+            {user?.avatar ? (
+              <Image
+                source={{ uri: user.avatar }}
+                style={[
+                  styles.profileAvatar,
+                  { borderColor: colors.primary },
+                ]}
+                contentFit="cover"
+              />
+            ) : (
+              <View
+                style={[
+                  styles.profileAvatar,
+                  {
+                    backgroundColor: colors.primary + "22",
+                    borderColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.profileInitials,
+                    { color: colors.primary, fontFamily: "Inter_700Bold" },
+                  ]}
+                >
+                  {initials}
+                </Text>
+              </View>
+            )}
+
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.profileName,
+                  { color: colors.foreground, fontFamily: "Inter_600SemiBold" },
+                ]}
+                numberOfLines={1}
+              >
+                {displayName}
+              </Text>
+              <Text
+                style={[
+                  styles.profileEmail,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
+                numberOfLines={1}
+              >
+                {displayEmail}
+              </Text>
+            </View>
+
+            <View style={styles.profileArrow}>
+              <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+            </View>
+          </Card>
+        </Pressable>
+
+        <Section title={t("settings.notifications")}>
           <SettingRow
             icon="bell-outline"
-            label="الإشعارات الفورية"
-            sub="تلقي إشعارات الحملات الجديدة والتحديثات"
+            label={t("settings.pushNotifications")}
+            sub={t("settings.pushNotificationsSub")}
             control={
               <Switch
                 value={state.notificationsPush}
@@ -122,8 +219,8 @@ export default function SettingsScreen() {
           <Divider />
           <SettingRow
             icon="email-outline"
-            label="إشعارات البريد"
-            sub="تلقي ملخصات أسبوعية عبر البريد الإلكتروني"
+            label={t("settings.emailNotifications")}
+            sub={t("settings.emailNotificationsSub")}
             control={
               <Switch
                 value={state.notificationsEmail}
@@ -135,11 +232,11 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="التجربة">
+        <Section title={t("settings.sectionExperience")}>
           <SettingRow
             icon="volume-high"
-            label="المؤثرات الصوتية"
-            sub="تشغيل أصوات التفاعل"
+            label={t("settings.sound")}
+            sub={t("settings.soundEffectsSub")}
             control={
               <Switch
                 value={state.soundEffects}
@@ -152,8 +249,8 @@ export default function SettingsScreen() {
           <Divider />
           <SettingRow
             icon="vibrate"
-            label="الاهتزاز"
-            sub="تفعيل الاهتزاز عند التفاعل"
+            label={t("settings.haptics")}
+            sub={t("settings.hapticsSub")}
             control={
               <Switch
                 value={state.haptics}
@@ -166,8 +263,8 @@ export default function SettingsScreen() {
           <Divider />
           <SettingRow
             icon="cloud-download-outline"
-            label="موفر البيانات"
-            sub="تقليل استهلاك الإنترنت قدر الإمكان"
+            label={t("settings.dataSaver")}
+            sub={t("settings.dataSaverSub")}
             control={
               <Switch
                 value={state.dataSaver}
@@ -179,7 +276,7 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="المظهر">
+        <Section title={t("settings.sectionAppearance")}>
           <View style={styles.themeRow}>
             <View
               style={[
@@ -202,7 +299,7 @@ export default function SettingsScreen() {
                   { color: colors.primary, fontFamily: "Inter_700Bold" },
                 ]}
               >
-                داكن
+                {t("settings.darkMode")}
               </Text>
             </View>
             <Text
@@ -215,26 +312,18 @@ export default function SettingsScreen() {
                 },
               ]}
             >
-              تم تحسين التطبيق للوضع الداكن لراحة العين.
+              {t("settings.darkModeSub")}
             </Text>
           </View>
         </Section>
 
-        <Section title="البيانات والتخزين">
+        <Section title={t("settings.sectionData")}>
           <Pressable
             onPress={clearCache}
-            style={({ pressed }) => [
-              styles.actionRow,
-              {
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
+            style={({ pressed }) => [styles.actionRow, { opacity: pressed ? 0.7 : 1 }]}
           >
             <View
-              style={[
-                styles.iconWrap,
-                { backgroundColor: colors.destructive + "1F" },
-              ]}
+              style={[styles.iconWrap, { backgroundColor: colors.destructive + "1F" }]}
             >
               <MaterialCommunityIcons
                 name="trash-can-outline"
@@ -253,7 +342,7 @@ export default function SettingsScreen() {
                   },
                 ]}
               >
-                مسح الذاكرة المؤقتة
+                {t("settings.clearCache")}
               </Text>
               <Text
                 style={[
@@ -265,16 +354,75 @@ export default function SettingsScreen() {
                   },
                 ]}
               >
-                حذف البيانات المحفوظة لتحرير المساحة
+                {t("settings.clearCacheSub")}
               </Text>
             </View>
-            <Feather
-              name="chevron-left"
-              size={18}
-              color={colors.mutedForeground}
-            />
+            <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
           </Pressable>
         </Section>
+
+        <Pressable
+          onPress={() => router.push(isAdmin ? "/admin" : "/login")}
+          style={({ pressed }) => [
+            styles.adminLoginBtn,
+            {
+              backgroundColor: colors.primary + "14",
+              borderColor: colors.primary + "55",
+              opacity: pressed ? 0.8 : 1,
+            },
+          ]}
+        >
+          <View style={[styles.iconWrap, { backgroundColor: colors.primary + "22" }]}>
+            <Feather name={isAdmin ? "shield" : "log-in"} size={20} color={colors.primary} />
+          </View>
+          <View style={styles.rowText}>
+            <Text
+              style={[
+                styles.rowLabel,
+                { color: colors.primary, fontFamily: "Inter_600SemiBold", writingDirection: "rtl" },
+              ]}
+            >
+              {isAdmin
+                ? t("settings.adminPanel", "لوحة الإدارة")
+                : t("settings.adminLogin", "تسجيل دخول المشرف")}
+            </Text>
+            <Text
+              style={[
+                styles.rowSub,
+                { color: colors.mutedForeground, fontFamily: "Inter_400Regular", writingDirection: "rtl" },
+              ]}
+            >
+              {isAdmin
+                ? t("settings.adminSessionActive", "جلسة المشرف مفعّلة")
+                : t("settings.adminLoginSub", "الدخول بالبريد الإلكتروني وكلمة المرور")}
+            </Text>
+          </View>
+          <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+        </Pressable>
+
+        {user && (
+          <Pressable
+            onPress={handleSignOut}
+            style={({ pressed }) => [
+              styles.signOutBtn,
+              {
+                backgroundColor: colors.destructive + "18",
+                borderColor: colors.destructive + "44",
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            <Feather name="log-out" size={18} color={colors.destructive} />
+            <Text
+              style={[
+                styles.signOutText,
+                { color: colors.destructive, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
+              {t("settings.logout")}
+            </Text>
+          </Pressable>
+        )}
 
         <Card style={{ alignItems: "center", gap: 4 }}>
           <Text
@@ -284,7 +432,7 @@ export default function SettingsScreen() {
               fontSize: 12,
             }}
           >
-            الإصدار 1.0.0
+            {t("settings.version")} 1.0.0
           </Text>
           <Text
             style={{
@@ -293,7 +441,7 @@ export default function SettingsScreen() {
               fontSize: 11,
             }}
           >
-            © 2026 مؤسسة الوليد للإنسانية
+            © 2026 AlWaleed for Humanity
           </Text>
         </Card>
       </ScrollView>
@@ -301,13 +449,7 @@ export default function SettingsScreen() {
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const colors = useColors();
   return (
     <View style={styles.section}>
@@ -344,23 +486,14 @@ function SettingRow({
   const colors = useColors();
   return (
     <View style={styles.actionRow}>
-      <View
-        style={[
-          styles.iconWrap,
-          { backgroundColor: colors.primary + "1F" },
-        ]}
-      >
+      <View style={[styles.iconWrap, { backgroundColor: colors.primary + "1F" }]}>
         <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
       </View>
       <View style={styles.rowText}>
         <Text
           style={[
             styles.rowLabel,
-            {
-              color: colors.foreground,
-              fontFamily: "Inter_600SemiBold",
-              writingDirection: "rtl",
-            },
+            { color: colors.foreground, fontFamily: "Inter_600SemiBold", writingDirection: "rtl" },
           ]}
         >
           {label}
@@ -368,11 +501,7 @@ function SettingRow({
         <Text
           style={[
             styles.rowSub,
-            {
-              color: colors.mutedForeground,
-              fontFamily: "Inter_400Regular",
-              writingDirection: "rtl",
-            },
+            { color: colors.mutedForeground, fontFamily: "Inter_400Regular", writingDirection: "rtl" },
           ]}
         >
           {sub}
@@ -398,10 +527,17 @@ function Divider() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: {
-    padding: 20,
-    gap: 22,
+  content: { padding: 20, gap: 22 },
+  profileAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
   },
+  profileInitials: { fontSize: 20 },
+  profileName: { fontSize: 16, textAlign: "right" },
+  profileEmail: { fontSize: 12, textAlign: "right", marginTop: 2 },
+  profileArrow: { marginLeft: 4 },
   section: { gap: 8 },
   sectionTitle: {
     fontSize: 11,
@@ -425,14 +561,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowText: { flex: 1, gap: 2 },
-  rowLabel: {
-    fontSize: 14,
-    textAlign: "right",
-  },
-  rowSub: {
-    fontSize: 11,
-    textAlign: "right",
-  },
+  rowLabel: { fontSize: 14, textAlign: "right" },
+  rowSub: { fontSize: 11, textAlign: "right" },
   themeRow: {
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -447,11 +577,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
   },
-  themeBadgeText: {
-    fontSize: 13,
+  themeBadgeText: { fontSize: 13 },
+  themeNote: { fontSize: 12, textAlign: "right" },
+  signOutBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  themeNote: {
-    fontSize: 12,
-    textAlign: "right",
+  signOutText: { fontSize: 16 },
+  adminLoginBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: 1,
   },
 });
